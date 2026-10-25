@@ -2,3 +2,7 @@
 *.o
 
 .fingerprint
+airgap/target
+*.exe
+*.pdb
+*.d

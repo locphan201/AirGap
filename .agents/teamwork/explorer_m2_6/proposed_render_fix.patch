@@ -1,0 +1,96 @@
+--- a/crates/render/src/lib.rs
++++ b/crates/render/src/lib.rs
+@@ -14,1 +14,1 @@
+-pub use markdown::{parse_markdown, LineIndex};
++pub use markdown::{generate_slug, parse_markdown, LineIndex};
+
+--- a/crates/render/src/markdown.rs
++++ b/crates/render/src/markdown.rs
+@@ -159,2 +159,32 @@ struct ActiveTable {
+ }
+ 
++/// Generates a URL-friendly anchor slug from heading text.
++///
++/// Rules:
++/// 1. Lowercases all characters.
++/// 2. Converts whitespace and underscores to hyphens.
++/// 3. Retains alphanumeric characters and hyphens.
++/// 4. Strips non-alphanumeric characters (punctuation, symbols).
++/// 5. Collapses consecutive hyphens.
++/// 6. Trims leading and trailing hyphens.
++pub fn generate_slug(text: &str) -> String {
++    let mut slug = String::with_capacity(text.len());
++    let mut prev_was_hyphen = false;
++
++    for c in text.chars() {
++        if c.is_alphanumeric() {
++            for lc in c.to_lowercase() {
++                slug.push(lc);
++            }
++            prev_was_hyphen = false;
++        } else if c.is_whitespace() || c == '-' || c == '_' {
++            if !prev_was_hyphen && !slug.is_empty() {
++                slug.push('-');
++                prev_was_hyphen = true;
++            }
++        }
++    }
++
++    if slug.ends_with('-') {
++        slug.pop();
++    }
++
++    slug
++}
++
+@@ -246,12 +276,19 @@ pub fn parse_markdown(markdown_text: &str) -> DocModel {
+             Event::End(TagEnd::Heading(_)) => {
+                 if let Some(h) = in_heading.take() {
+                     let span = line_index.byte_range_to_span(&(h.start_byte..range.end));
++                    let heading_text = h.plain.trim().to_string();
++                    let id = h.id.or_else(|| {
++                        let slug = generate_slug(&heading_text);
++                        if slug.is_empty() {
++                            None
++                        } else {
++                            Some(slug)
++                        }
++                    });
+                     blocks.push(Block::Heading {
+                         level: h.level,
+-                        text: h.plain.trim().to_string(),
++                        text: heading_text,
+                         inlines: h.inlines,
+-                        id: h.id,
++                        id,
+                         classes: h.classes,
+                         line: span.start_line,
+                         span,
+@@ -754,0 +791,24 @@ mod tests {
++    #[test]
++    fn test_heading_slug_generation() {
++        assert_eq!(generate_slug("Hello World!"), "hello-world");
++        assert_eq!(generate_slug("Section 2.1: Overview & Specs"), "section-21-overview-specs");
++        assert_eq!(generate_slug("  Leading and Trailing  "), "leading-and-trailing");
++        assert_eq!(generate_slug("快速开始 Quickstart"), "快速开始-quickstart");
++        assert_eq!(generate_slug("!@#$%"), "");
++    }
++
++    #[test]
++    fn test_heading_auto_slug_when_id_is_none() {
++        let md = "# Introduction to AirGap\n\n## Custom Heading {#my-custom-id}\n\n### !!!";
++        let doc = parse_markdown(md);
++
++        match &doc.blocks[0] {
++            Block::Heading { id, .. } => assert_eq!(id.as_deref(), Some("introduction-to-airgap")),
++            _ => panic!("Expected heading"),
++        }
++        match &doc.blocks[1] {
++            Block::Heading { id, .. } => assert_eq!(id.as_deref(), Some("my-custom-id")),
++            _ => panic!("Expected heading"),
++        }
++        match &doc.blocks[2] {
++            Block::Heading { id, .. } => assert_eq!(*id, None),
++            _ => panic!("Expected heading"),
++        }
++    }

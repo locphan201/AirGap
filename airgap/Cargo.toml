@@ -1,0 +1,30 @@
+[workspace]
+members = [
+    "crates/core",
+    "crates/render",
+    "crates/app",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+authors = ["AirGap Team"]
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.profiling]
+inherits = "release"
+strip = false
+debug = true

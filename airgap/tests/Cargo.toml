@@ -1,0 +1,46 @@
+[workspace]
+
+[package]
+name = "airgap-tests"
+version = "0.1.0"
+edition = "2021"
+
+
+[[test]]
+name = "tier1_feature_tests"
+path = "tier1_feature_tests.rs"
+
+[[test]]
+name = "tier2_boundary_tests"
+path = "tier2_boundary_tests.rs"
+
+[[test]]
+name = "tier3_cross_feature_tests"
+path = "tier3_cross_feature_tests.rs"
+
+[[test]]
+name = "tier4_real_world_tests"
+path = "tier4_real_world_tests.rs"
+
+[[test]]
+name = "tier5_adversarial_tests"
+path = "tier5_adversarial_tests.rs"
+
+[dependencies]
+airgap-core = { path = "../crates/core" }
+airgap-render = { path = "../crates/render" }
+tempfile = "3.16"
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+chrono = "0.4"
+walkdir = "2.5"
+regex = "1.10"
+fuzzy-matcher = "0.3"
+rayon = "1.10"
+tiny-skia = "0.11"
+resvg = "0.45"
+thiserror = "2.0"
+mermaid-rs-renderer = { version = "0.3.1", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+

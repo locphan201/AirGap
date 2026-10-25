@@ -1,0 +1,53 @@
+--- a/crates/app/src/ui/preview.rs
++++ b/crates/app/src/ui/preview.rs
+@@ -754,21 +754,49 @@ fn render_footnote(ui: &mut Ui, label: &str, inlines: &[InlineSpan], is_dark: b
+ fn toggle_checkbox_at_line(content: &mut String, target_line_1_indexed: usize) {
+-    let mut new_lines = Vec::new();
+-    for (idx, line) in content.lines().enumerate() {
++    let mut new_content = String::with_capacity(content.len());
++    for (idx, line) in content.split_inclusive('\n').enumerate() {
+         let current_line = idx + 1;
+         if current_line == target_line_1_indexed {
+             if line.contains("- [ ]") {
+-                new_lines.push(line.replacen("- [ ]", "- [x]", 1));
++                new_content.push_str(&line.replacen("- [ ]", "- [x]", 1));
+             } else if line.contains("- [x]") {
+-                new_lines.push(line.replacen("- [x]", "- [ ]", 1));
++                new_content.push_str(&line.replacen("- [x]", "- [ ]", 1));
+             } else if line.contains("- [X]") {
+-                new_lines.push(line.replacen("- [X]", "- [ ]", 1));
++                new_content.push_str(&line.replacen("- [X]", "- [ ]", 1));
+             } else {
+-                new_lines.push(line.to_string());
++                new_content.push_str(line);
+             }
+         } else {
+-            new_lines.push(line.to_string());
++            new_content.push_str(line);
+         }
+     }
+-    *content = new_lines.join("\n");
++    *content = new_content;
+ }
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn test_toggle_checkbox_preserves_crlf_and_trailing_newline() {
++        let mut content = "Line 1\r\n- [ ] Task 1\r\nLine 3\r\n".to_string();
++        toggle_checkbox_at_line(&mut content, 2);
++        assert_eq!(content, "Line 1\r\n- [x] Task 1\r\nLine 3\r\n");
++
++        toggle_checkbox_at_line(&mut content, 2);
++        assert_eq!(content, "Line 1\r\n- [ ] Task 1\r\nLine 3\r\n");
++    }
++
++    #[test]
++    fn test_toggle_checkbox_preserves_lf_without_trailing_newline() {
++        let mut content = "- [ ] Task A\n- [ ] Task B".to_string();
++        toggle_checkbox_at_line(&mut content, 1);
++        assert_eq!(content, "- [x] Task A\n- [ ] Task B");
++    }
++}

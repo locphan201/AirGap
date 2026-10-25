@@ -1,0 +1,50 @@
+# Cargo-deny policy for AirGap
+# Strictly enforces local-only privacy and bans network libraries
+
+[graph]
+targets = [
+    { triple = "x86_64-pc-windows-msvc" },
+    { triple = "x86_64-unknown-linux-gnu" },
+]
+
+[bans]
+multiple-versions = "warn"
+deny = [
+    # HTTP and networking client crates (Zero Network rule)
+    { name = "reqwest" },
+    { name = "hyper" },
+    { name = "curl" },
+    { name = "curl-sys" },
+    { name = "ureq" },
+    { name = "surf" },
+    { name = "isahc" },
+    { name = "attohttpc" },
+    { name = "tungstenite" },
+    { name = "tokio-tungstenite" },
+    { name = "async-tungstenite" },
+    # Webviews and browser runtimes (Native-only rule)
+    { name = "wry" },
+    { name = "tao" },
+    { name = "headless_chrome" },
+]
+
+[licenses]
+unlicensed = "deny"
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "CC0-1.0",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "OFL-1.1",
+    "Zlib",
+]
+confidence-threshold = 0.8
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

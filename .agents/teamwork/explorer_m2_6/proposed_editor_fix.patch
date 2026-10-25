@@ -1,0 +1,91 @@
+--- a/crates/app/src/ui/editor.rs
++++ b/crates/app/src/ui/editor.rs
+@@ -254,4 +254,4 @@ impl NoteEditor {
+                     if output.response.changed() {
+                         state.on_editor_modified();
+                     }
+ 
+                     // Keyboard shortcuts & typing conveniences
+-                    handle_editor_keystrokes(ui, state);
++                    handle_editor_keystrokes(ui, state, &output);
+                 });
+             });
+     });
+@@ -419,2 +419,2 @@ fn render_find_replace_bar(ui: &mut Ui, state: &mut AppState, is_dark: bool) {
+-fn handle_editor_keystrokes(ui: &mut Ui, state: &mut AppState) {
++fn handle_editor_keystrokes(ui: &mut Ui, state: &mut AppState, output: &egui::text_edit::TextEditOutput) {
+     ui.input(|i| {
+@@ -457,9 +457,30 @@ fn handle_editor_keystrokes(ui: &mut Ui, state: &mut AppState) {
+         // Ctrl+V: Image or Smart URL Paste
+         if ctrl && i.key_pressed(Key::V) {
+             if let (Some(vault), Some(active_note)) = (&state.vault, &state.active_note_path) {
+                 if let Some(image_md) = ClipboardHandler::try_paste_image(&vault.root, active_note)
+                 {
+-                    state.editor_content.push_str(&image_md);
++                    if let Some(cursor_range) = &output.cursor_range {
++                        let [start_cursor, end_cursor] = cursor_range.sorted_cursors();
++                        let start_char = start_cursor.ccursor.index;
++                        let end_char = end_cursor.ccursor.index;
++                        let start_byte = char_idx_to_byte_idx(&state.editor_content, start_char);
++                        let end_byte = char_idx_to_byte_idx(&state.editor_content, end_char);
++
++                        state.editor_content.replace_range(start_byte..end_byte, &image_md);
++
++                        let new_char_idx = start_char + image_md.chars().count();
++                        let mut edit_state =
++                            egui::text_edit::TextEditState::load(ui.ctx(), output.response.id)
++                                .unwrap_or_default();
++                        edit_state.cursor.set_char_range(Some(
++                            egui::text_selection::CCursorRange::one(egui::text::CCursor::new(
++                                new_char_idx,
++                            )),
++                        ));
++                        edit_state.store(ui.ctx(), output.response.id);
++                    } else {
++                        state.editor_content.push_str(&image_md);
++                    }
+                     state.on_editor_modified();
+                 }
+             }
+@@ -467,2 +488,10 @@ fn handle_editor_keystrokes(ui: &mut Ui, state: &mut AppState) {
+     });
+ }
++
++fn char_idx_to_byte_idx(text: &str, char_idx: usize) -> usize {
++    text.char_indices()
++        .nth(char_idx)
++        .map(|(byte_idx, _)| byte_idx)
++        .unwrap_or(text.len())
++}
+@@ -644,3 +673,3 @@ pub fn apply_auto_pairing(
+ fn find_current_line(text: &str, cursor_char_idx: usize) -> (usize, &str) {
+-    let clamped_cursor = cursor_char_idx.min(text.len());
++    let clamped_cursor = text.floor_char_boundary(cursor_char_idx.min(text.len()));
+     let line_start = text[..clamped_cursor]
+@@ -719,0 +748,27 @@ mod tests {
++
++    #[test]
++    fn test_find_current_line_utf8_char_boundary_safety() {
++        let text = "你好世界\n第二行🚀emoji";
++        // Byte 1 and 2 are inside '你' (3-byte char 0..3)
++        let (start, line) = find_current_line(text, 2);
++        assert_eq!(start, 0);
++        assert_eq!(line, "你好世界");
++
++        // Byte inside emoji (4-byte sequence)
++        let emoji_offset = text.find('🚀').unwrap() + 1;
++        let (start2, line2) = find_current_line(text, emoji_offset);
++        assert_eq!(line2, "第二行🚀emoji");
++        assert!(start2 > 0);
++    }
++
++    #[test]
++    fn test_char_idx_to_byte_idx() {
++        let text = "a你好b";
++        assert_eq!(char_idx_to_byte_idx(text, 0), 0); // 'a'
++        assert_eq!(char_idx_to_byte_idx(text, 1), 1); // '你'
++        assert_eq!(char_idx_to_byte_idx(text, 2), 4); // '好'
++        assert_eq!(char_idx_to_byte_idx(text, 3), 7); // 'b'
++        assert_eq!(char_idx_to_byte_idx(text, 4), 8); // EOF
++        assert_eq!(char_idx_to_byte_idx(text, 99), 8); // Out of bounds
++    }
